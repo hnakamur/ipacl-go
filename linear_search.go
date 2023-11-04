@@ -18,8 +18,8 @@ func newLinearSearch(rules []Rule, defaultAction Action) linearSearch {
 
 func (s *linearSearch) Lookup(ip netip.Addr) Action {
 	for i := range s.rules {
-		if s.rules[i].Target.Contains(ip) {
-			return s.rules[i].Action
+		if s.rules[i].target.Contains(ip) {
+			return s.rules[i].action
 		}
 	}
 	return s.defaultAction

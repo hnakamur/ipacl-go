@@ -27,7 +27,7 @@ func TestV6RangeFromPrefix(t *testing.T) {
 	}
 }
 
-func TestV6AddrNext(t *testing.T) {
+func TestV6Addr_Next(t *testing.T) {
 	t.Run("wrap", func(t *testing.T) {
 		ip := v6AddrFromBytes(netip.MustParseAddr("ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff").As16()).Next()
 		if got, want := ip.IsFirst(), true; got != want {
@@ -43,7 +43,7 @@ func TestV6AddrNext(t *testing.T) {
 	})
 }
 
-func TestV6AddrMax(t *testing.T) {
+func TestV6Addr_Max(t *testing.T) {
 	a := mustParseV6Addr("2001:db8::")
 	b := mustParseV6Addr("2001:db8::1")
 	if got, want := a.Max(b), b; got.Compare(want) != 0 {

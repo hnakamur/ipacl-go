@@ -6,6 +6,7 @@ import (
 	"math/bits"
 	"net/netip"
 	"slices"
+	"strings"
 )
 
 type v6Addr struct {
@@ -105,5 +106,49 @@ func v6RangeFromPrefix(p netip.Prefix) v6Range {
 }
 
 func (r v6Range) Overlaps(o v6Range) bool {
+	// !(r.start.Compare(o.end) > 0 || r.end.Compare(o.start) < 0)
 	return r.start.Compare(o.end) <= 0 && r.end.Compare(o.start) >= 0
+}
+
+func (r v6Range) IsNeighbor(o v6Range) bool {
+	return r.end.Next().Compare(o.start) == 0 || r.start.Prev().Compare(o.end) == 0
+}
+
+func (r v6Range) Contains(o v6Range) bool {
+	return r.start.Compare(o.start) <= 0 && r.end.Compare(o.end) >= 0
+}
+
+func (r v6Range) String() string {
+	var b strings.Builder
+	b.WriteString(r.start.String())
+	if r.end.Compare(r.start) != 0 {
+		b.WriteByte('-')
+		b.WriteString(r.end.String())
+	}
+	return b.String()
+}
+
+type v6RangeRule struct {
+	v6Range
+	action Action
+}
+
+func toV6RangeRule(rule Rule) v6RangeRule {
+	return v6RangeRule{
+		v6Range: v6RangeFromPrefix(rule.target),
+		action:  rule.action,
+	}
+}
+
+func (r v6RangeRule) String() string {
+	var b strings.Builder
+	if r.action == Deny {
+		b.WriteByte('!')
+	}
+	b.WriteString(r.v6Range.start.String())
+	if r.v6Range.end.Compare(r.v6Range.start) != 0 {
+		b.WriteByte('-')
+		b.WriteString(r.v6Range.end.String())
+	}
+	return b.String()
 }

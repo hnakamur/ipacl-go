@@ -24,4 +24,24 @@ func TestNetip(t *testing.T) {
 			t.Errorf("result mismatch, got=%s, want=%s", got, want)
 		}
 	})
+	t.Run("ParseAddr", func(t *testing.T) {
+		got, err := netip.ParseAddr("::%0")
+		if err != nil {
+			t.Fatal(err)
+		}
+		t.Logf("got=%s", got)
+	})
+	t.Run("Addr_Contains", func(t *testing.T) {
+		p, err := netip.ParsePrefix("::/128")
+		if err != nil {
+			t.Fatal(err)
+		}
+		ip, err := netip.ParseAddr("::%0")
+		if err != nil {
+			t.Fatal(err)
+		}
+		if got, want := p.Contains(ip), false; got != want {
+			t.Errorf("result mismatch, got=%v, want=%v", got, want)
+		}
+	})
 }

@@ -5,6 +5,7 @@ import (
 	"encoding/binary"
 	"net/netip"
 	"slices"
+	"strings"
 )
 
 type v4Addr uint32
@@ -81,4 +82,47 @@ func v4RangeFromPrefix(p netip.Prefix) v4Range {
 func (r v4Range) Overlaps(o v4Range) bool {
 	// !(r.start.Compare(o.end) > 0 || r.end.Compare(o.start) < 0)
 	return r.start.Compare(o.end) <= 0 && r.end.Compare(o.start) >= 0
+}
+
+func (r v4Range) IsNeighbor(o v4Range) bool {
+	return r.end.Next().Compare(o.start) == 0 || r.start.Prev().Compare(o.end) == 0
+}
+
+func (r v4Range) Contains(o v4Range) bool {
+	return r.start.Compare(o.start) <= 0 && r.end.Compare(o.end) >= 0
+}
+
+func (r v4Range) String() string {
+	var b strings.Builder
+	b.WriteString(r.start.String())
+	if r.end.Compare(r.start) != 0 {
+		b.WriteByte('-')
+		b.WriteString(r.end.String())
+	}
+	return b.String()
+}
+
+type v4RangeRule struct {
+	v4Range
+	action Action
+}
+
+func toV4RangeRule(rule Rule) v4RangeRule {
+	return v4RangeRule{
+		v4Range: v4RangeFromPrefix(rule.target),
+		action:  rule.action,
+	}
+}
+
+func (r v4RangeRule) String() string {
+	var b strings.Builder
+	if r.action == Deny {
+		b.WriteByte('!')
+	}
+	b.WriteString(r.v4Range.start.String())
+	if r.v4Range.end.Compare(r.v4Range.start) != 0 {
+		b.WriteByte('-')
+		b.WriteString(r.v4Range.end.String())
+	}
+	return b.String()
 }

@@ -22,13 +22,18 @@ const (
 
 // Rule is a unit of rule to allow or deny IP addresses in the target CIDR.
 type Rule struct {
-	Action Action
-	Target netip.Prefix
+	target netip.Prefix
+	action Action
+}
+
+// NewRule creates a rule with a CIDR and an action.
+func NewRule(target netip.Prefix, action Action) Rule {
+	return Rule{target: target, action: action}
 }
 
 // String returns the string representation of the rule.
 func (r Rule) String() string {
-	return fmt.Sprintf("%s %s", r.Action, r.Target)
+	return fmt.Sprintf("%s %s", r.action, r.target)
 }
 
 // ParseAction parses an action.
@@ -95,17 +100,21 @@ func ParseRuleLines(r io.Reader) (rules []Rule, defaultAction Action, err error)
 				ip, err := netip.ParseAddr(fields[1])
 				if err != nil {
 					return nil, defaultAction, fmt.Errorf(`invalid target %q at line %d, must be a valid a CIDR, an IP address or "all"`, fields[1], lineNo)
+				} else if strings.Contains(ip.String(), "%") {
+					return nil, defaultAction, fmt.Errorf(`invalid target %q at line %d, must not contain "%%"`, fields[1], lineNo)
 				}
 				if ip.Is4() {
 					target = netip.PrefixFrom(ip, 32)
 				} else {
 					target = netip.PrefixFrom(ip, 128)
 				}
+			} else if strings.Contains(target.String(), "%") {
+				return nil, defaultAction, fmt.Errorf(`invalid target %q at line %d, must not contain "%%"`, fields[1], lineNo)
 			}
 			if defaultAction != Action(0) {
 				return nil, defaultAction, fmt.Errorf(`target "all" line followed by non-"all" line at %d`, lineNo)
 			}
-			rules = append(rules, Rule{Action: action, Target: target})
+			rules = append(rules, NewRule(target, action))
 		}
 	}
 	if err := scanner.Err(); err != nil {

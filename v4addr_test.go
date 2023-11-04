@@ -25,7 +25,7 @@ func TestV4RangeFromPrefix(t *testing.T) {
 	}
 }
 
-func TestV4AddrNext(t *testing.T) {
+func TestV4Addr_Next(t *testing.T) {
 	t.Run("wrap", func(t *testing.T) {
 		ip := v4AddrFromBytes(netip.MustParseAddr("255.255.255.255").As4()).Next()
 		if got, want := ip.IsFirst(), true; got != want {
@@ -34,10 +34,18 @@ func TestV4AddrNext(t *testing.T) {
 	})
 }
 
-func TestV4AddrMax(t *testing.T) {
+func TestV4Addr_Max(t *testing.T) {
 	a := mustParseV4Addr("192.0.2.1")
 	b := mustParseV4Addr("192.0.2.2")
 	if got, want := a.Max(b), b; got.Compare(want) != 0 {
 		t.Errorf("result mismatch, got=%s, want=%s", got, want)
+	}
+}
+
+func TestV4Range_IsNeighbor(t *testing.T) {
+	r1 := v4Range{start: mustParseV4Addr("0.0.0.0"), end: mustParseV4Addr("0.0.0.0")}
+	r2 := v4Range{start: mustParseV4Addr("0.0.0.1"), end: mustParseV4Addr("0.0.0.1")}
+	if got, want := r1.IsNeighbor(r2), true; got != want {
+		t.Errorf("result mismatch, got=%v, want=%v", got, want)
 	}
 }
