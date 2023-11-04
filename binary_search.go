@@ -150,7 +150,7 @@ func (b *binarySearchBuilder) insertRule(rule Rule) {
 func (b *binarySearchBuilder) insertRuleV4(rule Rule) {
 	r := v4RangeFromPrefix(rule.target)
 	if debug {
-		log.Printf("insertRuleV4 start, %s", toV4RangeRule(rule))
+		log.Printf("insertRuleV4 start, %s", ruleRangeV4FromCIDR(rule))
 	}
 	if len(b.v4StartAddrs) == 0 {
 		b.insertNonOverlapRangeV4(0, r.start, r.end, rule.action)

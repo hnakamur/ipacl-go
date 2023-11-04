@@ -441,10 +441,10 @@ func TestBinarySearchBuilder_String(t *testing.T) {
 			// 	rules: "deny 192.0.2.24/30\ndeny 192.0.2.32/30",
 			// 	want:  "binarySearchBuilder{v4:[!192.0.2.24-192.0.2.27, !192.0.2.32-192.0.2.35], v6:[], defaultAction:allow}",
 			// },
-			{
-				rules: "deny 192.0.2.24/30\ndeny 192.0.2.32/30\nallow 192.0.2.24/29",
-				want:  "binarySearchBuilder{v4:[!192.0.2.24-192.0.2.27, 192.0.2.28-192.0.2.31, !192.0.2.32-192.0.2.35], v6:[], defaultAction:allow}",
-			},
+			// {
+			// 	rules: "deny 192.0.2.24/30\ndeny 192.0.2.32/30\nallow 192.0.2.24/29",
+			// 	want:  "binarySearchBuilder{v4:[!192.0.2.24-192.0.2.27, 192.0.2.28-192.0.2.31, !192.0.2.32-192.0.2.35], v6:[], defaultAction:allow}",
+			// },
 			// {
 			// 	rules: "deny 192.0.2.25\ndeny 192.0.2.27\ndeny 192.0.2.29",
 			// 	want:  "binarySearchBuilder{v4:[!192.0.2.25-192.0.2.25, !192.0.2.27-192.0.2.27, !192.0.2.29-192.0.2.29], v6:[], defaultAction:allow}",

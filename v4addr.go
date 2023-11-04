@@ -101,28 +101,3 @@ func (r v4Range) String() string {
 	}
 	return b.String()
 }
-
-type v4RangeRule struct {
-	v4Range
-	action Action
-}
-
-func toV4RangeRule(rule Rule) v4RangeRule {
-	return v4RangeRule{
-		v4Range: v4RangeFromPrefix(rule.target),
-		action:  rule.action,
-	}
-}
-
-func (r v4RangeRule) String() string {
-	var b strings.Builder
-	if r.action == Deny {
-		b.WriteByte('!')
-	}
-	b.WriteString(r.v4Range.start.String())
-	if r.v4Range.end.Compare(r.v4Range.start) != 0 {
-		b.WriteByte('-')
-		b.WriteString(r.v4Range.end.String())
-	}
-	return b.String()
-}
