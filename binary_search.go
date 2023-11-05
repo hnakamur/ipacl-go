@@ -7,6 +7,8 @@ import (
 
 const debug = false
 
+// BinarySearch is a type for looking up an IP address in the access control list
+// using binary search algorithm.
 type BinarySearch struct {
 	v4StartAddrs []v4Addr
 	v4EndAddrs   []v4Addr
@@ -17,11 +19,13 @@ type BinarySearch struct {
 	action Action
 }
 
+// NewBinarySearch creates an BinarySearch instance.
 func NewBinarySearch(rules []Rule, defaultAction Action) BinarySearch {
 	b := newBinarySearchBuilder(rules, defaultAction)
 	return b.toBinarySearch()
 }
 
+// Lookup lookups an IP address and returns the action defined in the access control list.
 func (s *BinarySearch) Lookup(ip netip.Addr) Action {
 	if ip.Is4() {
 		target := v4AddrFromBytes(ip.As4())

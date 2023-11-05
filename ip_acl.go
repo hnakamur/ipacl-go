@@ -1,4 +1,4 @@
-// Package ipacl provides feature to
+// Package ipacl provides feature for access control by an requester's IP address.
 package ipacl
 
 import (
