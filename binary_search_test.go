@@ -1,7 +1,9 @@
 package ipacl
 
 import (
+	"cmp"
 	"net/netip"
+	"slices"
 	"strings"
 	"testing"
 )
@@ -155,4 +157,143 @@ func FuzzBinarySearch_Lookup(f *testing.F) {
 			t.Errorf("result mismatch, got=%s, want=%s", got, want)
 		}
 	})
+}
+
+func TestBinarySearchGreaterThanOrEqualToRangeStart(t *testing.T) {
+	starts := []int{7, 5, 4, 1}
+	testCases := []struct {
+		target    int
+		wantIndex int
+		wantFound bool
+	}{
+		{target: 0, wantIndex: 4, wantFound: false},
+		{target: 1, wantIndex: 3, wantFound: true},
+		{target: 2, wantIndex: 3, wantFound: false},
+		{target: 3, wantIndex: 3, wantFound: false},
+		{target: 4, wantIndex: 2, wantFound: true},
+		{target: 5, wantIndex: 1, wantFound: true},
+		{target: 6, wantIndex: 1, wantFound: false},
+		{target: 7, wantIndex: 0, wantFound: true},
+		{target: 8, wantIndex: 0, wantFound: false},
+	}
+	for _, tc := range testCases {
+		gotIndex, gotFound := binarySearchForRangeStart(starts, tc.target)
+		if gotIndex != tc.wantIndex || gotFound != tc.wantFound {
+			t.Errorf("result mismatch, target=%d, gotIndex=%d, wantIndex=%d, gotFound=%v, wantFound=%v",
+				tc.target, gotIndex, tc.wantIndex, gotFound, tc.wantFound)
+		}
+	}
+}
+
+func binarySearchForRangeStart(starts []int, target int) (i int, found bool) {
+	return myBinarySearchFunc(starts, target, func(e, target int) int {
+		return -cmp.Compare(e, target)
+	})
+}
+
+func TestSlicesBinarySearchFunc(t *testing.T) {
+	s := []int{1, 1, 2}
+	target := 1
+	gotIndex, gotFound := slices.BinarySearch(s, target)
+	wantIndex, wantFound := 0, true
+	if gotIndex != wantIndex || gotFound != wantFound {
+		t.Errorf("result mismatch, target=%d, gotIndex=%d, wantIndex=%d, gotFound=%v, wantFound=%v",
+			target, gotIndex, wantIndex, gotFound, wantFound)
+	}
+}
+
+func TestMyBinarySearchFunc(t *testing.T) {
+	s := []int{1, 1, 2}
+	target := 1
+	gotIndex, gotFound := myBinarySearch(s, target)
+	wantIndex, wantFound := 1, true
+	if gotIndex != wantIndex || gotFound != wantFound {
+		t.Errorf("result mismatch, target=%d, gotIndex=%d, wantIndex=%d, gotFound=%v, wantFound=%v",
+			target, gotIndex, wantIndex, gotFound, wantFound)
+	}
+}
+
+func myBinarySearch[S ~[]E, E cmp.Ordered](x S, target E) (int, bool) {
+	n := len(x)
+	i, j := 0, n
+	for i < j {
+		h := int(uint(i+j) >> 1) // avoid overflow when computing h
+		if x[h] == target {
+			return h, true
+		}
+		if x[h] < target {
+			i = h + 1
+		} else {
+			j = h
+		}
+	}
+	return i, false
+}
+
+func myBinarySearchFunc[S ~[]E, E, T any](x S, target T, cmp func(E, T) int) (int, bool) {
+	n := len(x)
+	i, j := 0, n
+	for i < j {
+		h := int(uint(i+j) >> 1) // avoid overflow when computing h
+		c := cmp(x[h], target)
+		if c == 0 {
+			return h, true
+		}
+		if c < 0 {
+			i = h + 1
+		} else {
+			j = h
+		}
+	}
+	return i, false
+}
+
+func TestBinarySearchGreaterThanOrEqualToRangeStart2(t *testing.T) {
+	starts := []int{1, 4, 5, 7}
+	testCases := []struct {
+		target    int
+		wantIndex int
+		wantFound bool
+	}{
+		{target: 0, wantIndex: -1, wantFound: false},
+		{target: 1, wantIndex: 0, wantFound: true},
+		{target: 2, wantIndex: 0, wantFound: false},
+		{target: 3, wantIndex: 0, wantFound: false},
+		{target: 4, wantIndex: 1, wantFound: true},
+		{target: 5, wantIndex: 2, wantFound: true},
+		{target: 6, wantIndex: 2, wantFound: false},
+		{target: 7, wantIndex: 3, wantFound: true},
+		{target: 8, wantIndex: 3, wantFound: false},
+	}
+	for _, tc := range testCases {
+		gotIndex, gotFound := binarySearchForRangeStart2(starts, tc.target)
+		if gotIndex != tc.wantIndex || gotFound != tc.wantFound {
+			t.Errorf("result mismatch, target=%d, gotIndex=%d, wantIndex=%d, gotFound=%v, wantFound=%v",
+				tc.target, gotIndex, tc.wantIndex, gotFound, tc.wantFound)
+		}
+	}
+}
+
+func binarySearchForRangeStart2(starts []int, target int) (i int, found bool) {
+	return modifiedBinarySearchFunc(starts, target, func(e, target int) int {
+		return cmp.Compare(e, target)
+	})
+}
+
+func modifiedBinarySearchFunc[S ~[]E, E, T any](x S, target T, cmp func(E, T) int) (int, bool) {
+	n := len(x)
+	i, j := 0, n
+	for i < j {
+		h := int(uint(i+j) >> 1) // avoid overflow when computing h
+		c := cmp(x[h], target)
+		if c == 0 {
+			return h, true
+		}
+		if c < 0 {
+			i = h + 1
+		} else {
+			j = h
+		}
+	}
+	return i - 1, false
 }
