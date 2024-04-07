@@ -189,7 +189,7 @@ func TestSlicesBinarySearchFunc(t *testing.T) {
 func TestMyBinarySearchFunc(t *testing.T) {
 	s := []int{1, 1, 2}
 	target := 1
-	gotIndex, gotFound := binarySearchLowerBoundsFunc(s, target, func(e, target int) int {
+	gotIndex, gotFound := binarySearchNoDupFunc(s, target, func(e, target int) int {
 		return cmp.Compare(e, target)
 	})
 	wantIndex, wantFound := 1, true
@@ -199,25 +199,25 @@ func TestMyBinarySearchFunc(t *testing.T) {
 	}
 }
 
-func TestBinarySearchLowerBoundsFunc(t *testing.T) {
+func TestBinarySearchNoDupFunc(t *testing.T) {
 	starts := []int{1, 4, 5, 7}
 	testCases := []struct {
 		target    int
 		wantIndex int
 		wantFound bool
 	}{
-		{target: 0, wantIndex: -1, wantFound: false},
+		{target: 0, wantIndex: 0, wantFound: false},
 		{target: 1, wantIndex: 0, wantFound: true},
-		{target: 2, wantIndex: 0, wantFound: false},
-		{target: 3, wantIndex: 0, wantFound: false},
+		{target: 2, wantIndex: 1, wantFound: false},
+		{target: 3, wantIndex: 1, wantFound: false},
 		{target: 4, wantIndex: 1, wantFound: true},
 		{target: 5, wantIndex: 2, wantFound: true},
-		{target: 6, wantIndex: 2, wantFound: false},
+		{target: 6, wantIndex: 3, wantFound: false},
 		{target: 7, wantIndex: 3, wantFound: true},
-		{target: 8, wantIndex: 3, wantFound: false},
+		{target: 8, wantIndex: 4, wantFound: false},
 	}
 	for _, tc := range testCases {
-		gotIndex, gotFound := binarySearchLowerBoundsFunc(starts, tc.target, func(e, target int) int {
+		gotIndex, gotFound := binarySearchNoDupFunc(starts, tc.target, func(e, target int) int {
 			return cmp.Compare(e, target)
 		})
 		if gotIndex != tc.wantIndex || gotFound != tc.wantFound {

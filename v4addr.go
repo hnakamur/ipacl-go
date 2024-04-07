@@ -3,14 +3,11 @@ package ipacl
 import (
 	"cmp"
 	"encoding/binary"
-	"math"
 	"net/netip"
 	"strings"
 )
 
 type v4Addr uint32
-
-const v4AddrMax = math.MaxUint32
 
 func v4AddrFromBytes(a4 [4]byte) v4Addr {
 	return v4Addr(binary.BigEndian.Uint32(a4[:]))

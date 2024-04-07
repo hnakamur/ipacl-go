@@ -3,7 +3,6 @@ package ipacl
 import (
 	"cmp"
 	"encoding/binary"
-	"math"
 	"math/bits"
 	"net/netip"
 	"strings"
@@ -13,8 +12,6 @@ type v6Addr struct {
 	hi uint64
 	lo uint64
 }
-
-var v6AddrMax = v6Addr{hi: math.MaxUint64, lo: math.MaxUint64}
 
 func v6AddrFromBytes(a16 [16]byte) v6Addr {
 	return v6Addr{
