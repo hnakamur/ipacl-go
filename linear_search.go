@@ -5,14 +5,12 @@ import (
 )
 
 type linearSearch struct {
-	rules         []Rule
-	defaultAction Action
+	rules []Rule
 }
 
-func newLinearSearch(rules []Rule, defaultAction Action) linearSearch {
+func newLinearSearch(rules []Rule) linearSearch {
 	return linearSearch{
-		rules:         rules,
-		defaultAction: defaultAction,
+		rules: rules,
 	}
 }
 
@@ -22,5 +20,5 @@ func (s *linearSearch) Lookup(ip netip.Addr) Action {
 			return s.rules[i].action
 		}
 	}
-	return s.defaultAction
+	panic("unreachable")
 }

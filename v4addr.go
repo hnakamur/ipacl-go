@@ -4,7 +4,6 @@ import (
 	"cmp"
 	"encoding/binary"
 	"net/netip"
-	"slices"
 	"strings"
 )
 
@@ -46,10 +45,6 @@ func (a v4Addr) Max(b v4Addr) v4Addr {
 
 func (a v4Addr) Min(b v4Addr) v4Addr {
 	return min(a, b)
-}
-
-func (a v4Addr) BinarySearch(addrs []v4Addr) (int, bool) {
-	return slices.BinarySearch(addrs, a)
 }
 
 func (a v4Addr) IsFirst() bool {

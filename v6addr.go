@@ -5,7 +5,6 @@ import (
 	"encoding/binary"
 	"math/bits"
 	"net/netip"
-	"slices"
 	"strings"
 )
 
@@ -84,12 +83,6 @@ func (a v6Addr) Prev() v6Addr {
 	lo, borrow := bits.Sub64(a.lo, 1, 0)
 	hi := a.hi - borrow
 	return v6Addr{hi: hi, lo: lo}
-}
-
-func (a v6Addr) BinarySearch(addrs []v6Addr) (int, bool) {
-	return slices.BinarySearchFunc(addrs, a, func(a, b v6Addr) int {
-		return a.Compare(b)
-	})
 }
 
 type v6Range struct {

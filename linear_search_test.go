@@ -2,17 +2,16 @@ package ipacl
 
 import (
 	"net/netip"
-	"strings"
 	"testing"
 )
 
 func TestLinearSearch(t *testing.T) {
 	for i, rulesAndCases := range testRulesAndCasesData {
-		rules, defAct, err := ParseRuleLines(strings.NewReader(rulesAndCases.rules))
+		rules, err := ParseRuleLines(rulesAndCases.rules)
 		if err != nil {
 			t.Fatal(err)
 		}
-		s := newLinearSearch(rules, defAct)
+		s := newLinearSearch(rules)
 		for _, tc := range rulesAndCases.cases {
 			got := s.Lookup(netip.MustParseAddr(tc.input))
 			if got != tc.want {
