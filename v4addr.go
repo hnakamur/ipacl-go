@@ -3,12 +3,14 @@ package ipacl
 import (
 	"cmp"
 	"encoding/binary"
+	"math"
 	"net/netip"
-	"slices"
 	"strings"
 )
 
 type v4Addr uint32
+
+const v4AddrMax = math.MaxUint32
 
 func v4AddrFromBytes(a4 [4]byte) v4Addr {
 	return v4Addr(binary.BigEndian.Uint32(a4[:]))
@@ -46,10 +48,6 @@ func (a v4Addr) Max(b v4Addr) v4Addr {
 
 func (a v4Addr) Min(b v4Addr) v4Addr {
 	return min(a, b)
-}
-
-func (a v4Addr) BinarySearch(addrs []v4Addr) (int, bool) {
-	return slices.BinarySearch(addrs, a)
 }
 
 func (a v4Addr) IsFirst() bool {

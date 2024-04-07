@@ -10,18 +10,16 @@ const debug = false
 // BinarySearch is a type for looking up an IP address in the access control list
 // using binary search algorithm.
 type BinarySearch struct {
-	v4StartAddrs []v4Addr
-	v4EndAddrs   []v4Addr
+	v4StartAddrs      []v4Addr
+	v4EvenIndexIsDeny bool
 
-	v6StartAddrs []v6Addr
-	v6EndAddrs   []v6Addr
-
-	action Action
+	v6StartAddrs      []v6Addr
+	v6EvenIndexIsDeny bool
 }
 
 // NewBinarySearch creates an BinarySearch instance.
-func NewBinarySearch(rules []Rule, defaultAction Action) BinarySearch {
-	b := newBinarySearchBuilder(rules, defaultAction)
+func NewBinarySearch(rules []Rule) BinarySearch {
+	b := newBinarySearchBuilder(rules)
 	return b.toBinarySearch()
 }
 
@@ -29,23 +27,78 @@ func NewBinarySearch(rules []Rule, defaultAction Action) BinarySearch {
 func (s *BinarySearch) Lookup(ip netip.Addr) Action {
 	if ip.Is4() {
 		target := v4AddrFromBytes(ip.As4())
-		if len(s.v4EndAddrs) > 0 {
-			i, _ := target.BinarySearch(s.v4EndAddrs)
-			if i < len(s.v4StartAddrs) && target >= s.v4StartAddrs[i] {
-				return s.action
+		if len(s.v4StartAddrs) > 0 {
+			i, _ := binarySearchLowerBoundsFunc(s.v4StartAddrs, target, func(e, t v4Addr) int {
+				return e.Compare(t)
+			})
+			if s.isDenyIndexV4(i) {
+				return Deny
 			}
 		}
-		return s.action.Negated()
+		return Allow
 	}
 
 	target := v6AddrFromBytes(ip.As16())
-	if len(s.v6EndAddrs) > 0 {
-		i, _ := target.BinarySearch(s.v6EndAddrs)
-		if i < len(s.v6StartAddrs) && target.Compare(s.v6StartAddrs[i]) >= 0 {
-			return s.action
+	if len(s.v6StartAddrs) > 0 {
+		i, _ := binarySearchLowerBoundsFunc(s.v6StartAddrs, target, func(e, t v6Addr) int {
+			return e.Compare(t)
+		})
+		if s.isDenyIndexV6(i) {
+			return Deny
 		}
 	}
-	return s.action.Negated()
+	return Allow
+}
+
+// binarySearchLowerBoundsFunc searches for target in a sorted slice and returns
+// the position where target is found, or the position where target would
+// appear in the sort order; it also returns a bool saying whether the target
+// is really found in the slice.
+//
+// The slice must be sorted in increasing order, where "increasing" is
+// defined by cmp. cmp should return 0 if the slice element matches the target,
+// a negative number if the slice element precedes the target, or a positive
+// number if the slice element follows the target. cmp must implement the same
+// ordering as the slice, such that if cmp(a, t) < 0 and cmp(b, t) >= 0, then
+// a must precede b in the slice.
+//
+// Also the slice must not have same values more than once.
+//
+// This function returns the index i where target >= x[i] as opposed to
+// target <= x[i] in Go standard library slices.BinarySearchFunc.
+// It returns -1 as index if target < x[0]
+func binarySearchLowerBoundsFunc[S ~[]E, E, T any](x S, target T, cmp func(E, T) int) (int, bool) {
+	n := len(x)
+	i, j := 0, n
+	for i < j {
+		h := int(uint(i+j) >> 1) // avoid overflow when computing h
+		c := cmp(x[h], target)
+		if c == 0 {
+			// Since we know all values in x are different, we can return now.
+			return h, true
+		}
+		if c < 0 {
+			i = h + 1
+		} else {
+			j = h
+		}
+	}
+	// we return lower bounds index i - 1
+	return i - 1, false
+}
+
+func (s *BinarySearch) isDenyIndexV4(i int) bool {
+	if s.v4EvenIndexIsDeny {
+		return i%2 == 0
+	}
+	return i%2 == 1
+}
+
+func (s *BinarySearch) isDenyIndexV6(i int) bool {
+	if s.v6EvenIndexIsDeny {
+		return i%2 == 0
+	}
+	return i%2 == 1
 }
 
 func (s *BinarySearch) String() string {
@@ -55,13 +108,19 @@ func (s *BinarySearch) String() string {
 		if i > 0 {
 			b.WriteString(", ")
 		}
-		if s.action == Deny {
+		if s.isDenyIndexV4(i) {
 			b.WriteByte('!')
 		}
 		b.WriteString(s.v4StartAddrs[i].String())
-		if s.v4EndAddrs[i].Compare(s.v4StartAddrs[i]) != 0 {
+		var endAddr v4Addr
+		if i+1 < len(s.v4StartAddrs) {
+			endAddr = s.v4StartAddrs[i+1].Prev()
+		} else {
+			endAddr = v4AddrMax
+		}
+		if endAddr.Compare(s.v4StartAddrs[i]) != 0 {
 			b.WriteByte('-')
-			b.WriteString(s.v4EndAddrs[i].String())
+			b.WriteString(endAddr.String())
 		}
 	}
 	b.WriteString("], v6:[")
@@ -69,13 +128,19 @@ func (s *BinarySearch) String() string {
 		if i > 0 {
 			b.WriteString(", ")
 		}
-		if s.action == Deny {
+		if s.isDenyIndexV6(i) {
 			b.WriteByte('!')
 		}
 		b.WriteString(s.v6StartAddrs[i].String())
-		if s.v6EndAddrs[i].Compare(s.v6StartAddrs[i]) != 0 {
+		var endAddr v6Addr
+		if i+1 < len(s.v6StartAddrs) {
+			endAddr = s.v6StartAddrs[i+1].Prev()
+		} else {
+			endAddr = v6AddrMax
+		}
+		if endAddr.Compare(s.v6StartAddrs[i]) != 0 {
 			b.WriteByte('-')
-			b.WriteString(s.v6EndAddrs[i].String())
+			b.WriteString(endAddr.String())
 		}
 	}
 	b.WriteString("]}")
@@ -83,15 +148,12 @@ func (s *BinarySearch) String() string {
 }
 
 type binarySearchBuilder struct {
-	v4Rules       []ruleRangeV4
-	v6Rules       []ruleRangeV6
-	defaultAction Action
+	v4Rules []ruleRangeV4
+	v6Rules []ruleRangeV6
 }
 
-func newBinarySearchBuilder(rules []Rule, defaultAction Action) *binarySearchBuilder {
-	b := binarySearchBuilder{
-		defaultAction: defaultAction,
-	}
+func newBinarySearchBuilder(rules []Rule) *binarySearchBuilder {
+	var b binarySearchBuilder
 	for _, rule := range rules {
 		b.insertRule(rule)
 	}
@@ -99,42 +161,22 @@ func newBinarySearchBuilder(rules []Rule, defaultAction Action) *binarySearchBui
 }
 
 func (b *binarySearchBuilder) toBinarySearch() BinarySearch {
-	s := BinarySearch{
-		action: b.defaultAction.Negated(),
+	var s BinarySearch
+
+	s.v4StartAddrs = make([]v4Addr, len(b.v4Rules))
+	for i, r := range b.v4Rules {
+		if i == 0 {
+			s.v4EvenIndexIsDeny = r.action == Deny
+		}
+		s.v4StartAddrs[i] = r.ipRange.start
 	}
 
-	n := 0
-	for _, r := range b.v4Rules {
-		if r.action != b.defaultAction {
-			n++
+	s.v6StartAddrs = make([]v6Addr, len(b.v6Rules))
+	for i, r := range b.v6Rules {
+		if i == 0 {
+			s.v6EvenIndexIsDeny = r.action == Deny
 		}
-	}
-	s.v4StartAddrs = make([]v4Addr, n)
-	s.v4EndAddrs = make([]v4Addr, n)
-	j := 0
-	for i, a := range b.v4Rules {
-		if a.action != b.defaultAction {
-			s.v4StartAddrs[j] = b.v4Rules[i].ipRange.start
-			s.v4EndAddrs[j] = b.v4Rules[i].ipRange.end
-			j++
-		}
-	}
-
-	n = 0
-	for _, r := range b.v6Rules {
-		if r.action != b.defaultAction {
-			n++
-		}
-	}
-	s.v6StartAddrs = make([]v6Addr, n)
-	s.v6EndAddrs = make([]v6Addr, n)
-	j = 0
-	for i, a := range b.v6Rules {
-		if a.action != b.defaultAction {
-			s.v6StartAddrs[j] = b.v6Rules[i].ipRange.start
-			s.v6EndAddrs[j] = b.v6Rules[i].ipRange.end
-			j++
-		}
+		s.v6StartAddrs[i] = r.ipRange.start
 	}
 
 	return s

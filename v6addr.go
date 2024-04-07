@@ -3,9 +3,9 @@ package ipacl
 import (
 	"cmp"
 	"encoding/binary"
+	"math"
 	"math/bits"
 	"net/netip"
-	"slices"
 	"strings"
 )
 
@@ -13,6 +13,8 @@ type v6Addr struct {
 	hi uint64
 	lo uint64
 }
+
+var v6AddrMax = v6Addr{hi: math.MaxUint64, lo: math.MaxUint64}
 
 func v6AddrFromBytes(a16 [16]byte) v6Addr {
 	return v6Addr{
@@ -84,12 +86,6 @@ func (a v6Addr) Prev() v6Addr {
 	lo, borrow := bits.Sub64(a.lo, 1, 0)
 	hi := a.hi - borrow
 	return v6Addr{hi: hi, lo: lo}
-}
-
-func (a v6Addr) BinarySearch(addrs []v6Addr) (int, bool) {
-	return slices.BinarySearchFunc(addrs, a, func(a, b v6Addr) int {
-		return a.Compare(b)
-	})
 }
 
 type v6Range struct {

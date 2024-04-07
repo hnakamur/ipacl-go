@@ -20,6 +20,23 @@ type testRulesAndCases struct {
 
 var testRulesAndCasesData = []testRulesAndCases{
 	{
+		rules: "deny 192.0.2.0",
+		cases: []testCase{
+			{input: "0.0.0.0", want: Allow},
+			{input: "192.0.1.255", want: Allow},
+			{input: "192.0.2.0", want: Deny},
+			{input: "192.0.2.1", want: Allow},
+			{input: "255.255.255.255", want: Allow},
+		},
+	},
+	{
+		rules: "allow 192.0.2.0",
+		cases: []testCase{
+			{input: "0.0.0.1", want: Allow},
+			{input: "192.0.2.0", want: Allow},
+		},
+	},
+	{
 		rules: "allow 0.0.0.2\ndeny 0.0.0.1\ndeny 0.0.0.0",
 		cases: []testCase{
 			{input: "0.0.0.1", want: Deny},
@@ -74,11 +91,11 @@ var testRulesAndCasesData = []testRulesAndCases{
 
 func TestBinarySearch_Lookup(t *testing.T) {
 	for i, rulesAndCases := range testRulesAndCasesData {
-		rules, defAct, err := ParseRuleLines(strings.NewReader(rulesAndCases.rules))
+		rules, err := ParseRuleLines(rulesAndCases.rules)
 		if err != nil {
 			t.Fatal(err)
 		}
-		s := NewBinarySearch(rules, defAct)
+		s := NewBinarySearch(rules)
 		for _, tc := range rulesAndCases.cases {
 			got := s.Lookup(netip.MustParseAddr(tc.input))
 			if got != tc.want {
@@ -95,11 +112,11 @@ func TestBinarySearch_String(t *testing.T) {
 	}{
 		{
 			rules: "deny 192.0.2.0/28\ndeny 192.0.2.16/29",
-			want:  "BinarySearch{v4:[!192.0.2.0-192.0.2.23], v6:[]}",
+			want:  "BinarySearch{v4:[0.0.0.0-192.0.1.255, !192.0.2.0-192.0.2.23, 192.0.2.24-255.255.255.255], v6:[::-ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff]}",
 		},
 		{
 			rules: "deny 192.0.2.0/28\ndeny 192.0.2.24/29",
-			want:  "BinarySearch{v4:[!192.0.2.0-192.0.2.15, !192.0.2.24-192.0.2.31], v6:[]}",
+			want:  "BinarySearch{v4:[0.0.0.0-192.0.1.255, !192.0.2.0-192.0.2.15, 192.0.2.16-192.0.2.23, !192.0.2.24-192.0.2.31, 192.0.2.32-255.255.255.255], v6:[::-ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff]}",
 		},
 		{
 			rules: `
@@ -109,16 +126,15 @@ func TestBinarySearch_String(t *testing.T) {
 				allow 2001:0db8::/32
 				deny  all
 			`,
-			want: "BinarySearch{v4:[10.1.0.0-10.1.255.255, 192.168.1.0, 192.168.1.2-192.168.1.255], " +
-				"v6:[2001:db8::-2001:db8:ffff:ffff:ffff:ffff:ffff:ffff]}",
+			want: "BinarySearch{v4:[!0.0.0.0-10.0.255.255, 10.1.0.0-10.1.255.255, !10.2.0.0-192.168.0.255, 192.168.1.0, !192.168.1.1, 192.168.1.2-192.168.1.255, !192.168.2.0-255.255.255.255], v6:[!::-2001:db7:ffff:ffff:ffff:ffff:ffff:ffff, 2001:db8::-2001:db8:ffff:ffff:ffff:ffff:ffff:ffff, !2001:db9::-ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff]}",
 		},
 	}
 	for i, tc := range testCases {
-		rules, defAct, err := ParseRuleLines(strings.NewReader(tc.rules))
+		rules, err := ParseRuleLines(tc.rules)
 		if err != nil {
 			t.Fatal(err)
 		}
-		s := NewBinarySearch(rules, defAct)
+		s := NewBinarySearch(rules)
 		if got := s.String(); got != tc.want {
 			t.Errorf("result mismatch, i=%d, rules=%s\n got=%s\nwant=%s", i, tc.rules, got, tc.want)
 		}
@@ -141,7 +157,7 @@ func FuzzBinarySearch_Lookup(f *testing.F) {
 		deny  all
 		`, "2001:0db8::")
 	f.Fuzz(func(t *testing.T, s, input string) {
-		rules, defAct, err := ParseRuleLines(strings.NewReader(s))
+		rules, err := ParseRuleLines(s)
 		if err != nil {
 			t.Skip()
 		}
@@ -149,45 +165,13 @@ func FuzzBinarySearch_Lookup(f *testing.F) {
 		if err != nil || strings.Contains(target.String(), "%") {
 			t.Skip()
 		}
-		bs := NewBinarySearch(rules, defAct)
-		ls := newLinearSearch(rules, defAct)
+		bs := NewBinarySearch(rules)
+		ls := newLinearSearch(rules)
 		got := bs.Lookup(target)
 		want := ls.Lookup(target)
 		if got != want {
 			t.Errorf("result mismatch, got=%s, want=%s", got, want)
 		}
-	})
-}
-
-func TestBinarySearchGreaterThanOrEqualToRangeStart(t *testing.T) {
-	starts := []int{7, 5, 4, 1}
-	testCases := []struct {
-		target    int
-		wantIndex int
-		wantFound bool
-	}{
-		{target: 0, wantIndex: 4, wantFound: false},
-		{target: 1, wantIndex: 3, wantFound: true},
-		{target: 2, wantIndex: 3, wantFound: false},
-		{target: 3, wantIndex: 3, wantFound: false},
-		{target: 4, wantIndex: 2, wantFound: true},
-		{target: 5, wantIndex: 1, wantFound: true},
-		{target: 6, wantIndex: 1, wantFound: false},
-		{target: 7, wantIndex: 0, wantFound: true},
-		{target: 8, wantIndex: 0, wantFound: false},
-	}
-	for _, tc := range testCases {
-		gotIndex, gotFound := binarySearchForRangeStart(starts, tc.target)
-		if gotIndex != tc.wantIndex || gotFound != tc.wantFound {
-			t.Errorf("result mismatch, target=%d, gotIndex=%d, wantIndex=%d, gotFound=%v, wantFound=%v",
-				tc.target, gotIndex, tc.wantIndex, gotFound, tc.wantFound)
-		}
-	}
-}
-
-func binarySearchForRangeStart(starts []int, target int) (i int, found bool) {
-	return myBinarySearchFunc(starts, target, func(e, target int) int {
-		return -cmp.Compare(e, target)
 	})
 }
 
@@ -205,7 +189,9 @@ func TestSlicesBinarySearchFunc(t *testing.T) {
 func TestMyBinarySearchFunc(t *testing.T) {
 	s := []int{1, 1, 2}
 	target := 1
-	gotIndex, gotFound := myBinarySearch(s, target)
+	gotIndex, gotFound := binarySearchLowerBoundsFunc(s, target, func(e, target int) int {
+		return cmp.Compare(e, target)
+	})
 	wantIndex, wantFound := 1, true
 	if gotIndex != wantIndex || gotFound != wantFound {
 		t.Errorf("result mismatch, target=%d, gotIndex=%d, wantIndex=%d, gotFound=%v, wantFound=%v",
@@ -213,42 +199,7 @@ func TestMyBinarySearchFunc(t *testing.T) {
 	}
 }
 
-func myBinarySearch[S ~[]E, E cmp.Ordered](x S, target E) (int, bool) {
-	n := len(x)
-	i, j := 0, n
-	for i < j {
-		h := int(uint(i+j) >> 1) // avoid overflow when computing h
-		if x[h] == target {
-			return h, true
-		}
-		if x[h] < target {
-			i = h + 1
-		} else {
-			j = h
-		}
-	}
-	return i, false
-}
-
-func myBinarySearchFunc[S ~[]E, E, T any](x S, target T, cmp func(E, T) int) (int, bool) {
-	n := len(x)
-	i, j := 0, n
-	for i < j {
-		h := int(uint(i+j) >> 1) // avoid overflow when computing h
-		c := cmp(x[h], target)
-		if c == 0 {
-			return h, true
-		}
-		if c < 0 {
-			i = h + 1
-		} else {
-			j = h
-		}
-	}
-	return i, false
-}
-
-func TestBinarySearchGreaterThanOrEqualToRangeStart2(t *testing.T) {
+func TestBinarySearchLowerBoundsFunc(t *testing.T) {
 	starts := []int{1, 4, 5, 7}
 	testCases := []struct {
 		target    int
@@ -266,34 +217,12 @@ func TestBinarySearchGreaterThanOrEqualToRangeStart2(t *testing.T) {
 		{target: 8, wantIndex: 3, wantFound: false},
 	}
 	for _, tc := range testCases {
-		gotIndex, gotFound := binarySearchForRangeStart2(starts, tc.target)
+		gotIndex, gotFound := binarySearchLowerBoundsFunc(starts, tc.target, func(e, target int) int {
+			return cmp.Compare(e, target)
+		})
 		if gotIndex != tc.wantIndex || gotFound != tc.wantFound {
 			t.Errorf("result mismatch, target=%d, gotIndex=%d, wantIndex=%d, gotFound=%v, wantFound=%v",
 				tc.target, gotIndex, tc.wantIndex, gotFound, tc.wantFound)
 		}
 	}
-}
-
-func binarySearchForRangeStart2(starts []int, target int) (i int, found bool) {
-	return modifiedBinarySearchFunc(starts, target, func(e, target int) int {
-		return cmp.Compare(e, target)
-	})
-}
-
-func modifiedBinarySearchFunc[S ~[]E, E, T any](x S, target T, cmp func(E, T) int) (int, bool) {
-	n := len(x)
-	i, j := 0, n
-	for i < j {
-		h := int(uint(i+j) >> 1) // avoid overflow when computing h
-		c := cmp(x[h], target)
-		if c == 0 {
-			return h, true
-		}
-		if c < 0 {
-			i = h + 1
-		} else {
-			j = h
-		}
-	}
-	return i - 1, false
 }
