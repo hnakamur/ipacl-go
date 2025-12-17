@@ -1,4 +1,4 @@
-module github.com/hnakamur/ipacl
+module github.com/hnakamur/ipacl-go
 
 go 1.21.2
 
